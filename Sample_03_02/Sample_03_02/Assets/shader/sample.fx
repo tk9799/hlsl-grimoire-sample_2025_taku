@@ -39,5 +39,7 @@ float4 PSMain(VSOutput vsOut) : SV_Target0
     
     float4 texColor = g_texture.Sample(g_sampler, vsOut.uv);
     return texColor;
+    
+    // 元のコード。いらないのでコメントアウト
     //return float4(vsOut.color, 1.0f);
 }
