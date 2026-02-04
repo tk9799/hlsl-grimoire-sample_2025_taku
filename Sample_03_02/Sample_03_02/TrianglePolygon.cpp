@@ -79,11 +79,6 @@ void TrianglePolygon::InitVertexBuffer()
 			{ 0.0f, 0.0f, 1.0f },
 			{1.0f, 0.0f}
 	};
-	/*m_vertices[3]= {
-			{ 0.0f, 0.5f, 0.0f },
-			{ 1.0f, 1.0f, 1.0f },
-			{ 0.5f, 0.0f }
-	};*/
 
 	m_vertexBuffer.Init(sizeof(m_vertices), sizeof(m_vertices[0]));
 	m_vertexBuffer.Copy(m_vertices);
@@ -98,8 +93,7 @@ void TrianglePolygon::SetUVCoord(int vertNo, float U, float V)
 void TrianglePolygon::InitIndexBuffer()
 {
 	unsigned short indices[] = {
-		0,1,2,
-		//0,2,3
+		0,1,2
 	};
 	
 	m_indexBuffer.Init(sizeof(indices), 2);
