@@ -32,14 +32,58 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     InitLightCamera(lightCamera, ligPos);
 
     // step-1 シャドウマップ描画用のレンダリングターゲットを作成する
+	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	RenderTarget shadowMap;
+    shadowMap.Create(
+        2048,
+        2048,
+        1,
+        1,
+        //【注目】シャドウマッップのカラーバッファーのフォーマットを変更している
+        DXGI_FORMAT_R32G32_FLOAT,
+        DXGI_FORMAT_D32_FLOAT,
+        clearColor
+    );
 
     // step-2 シャドウマップをぼかすためのオブジェクトを初期化する
+    GaussianBlur shadowBlue;
+	shadowBlue.Init(&shadowMap.GetRenderTargetTexture());//ぼかすテクスチャはシャドウマップのテクスチャ
 
     // step-3 GPU側で利用するシャドウ用の構造体を定義する
+    struct ShadowParan
+    {
+        Matrix mLVP;//ライトビュープロジェクション行列
+        Vector3 lightPos;//ライトの座標
+    };
 
     // step-4 GPU側に送るデータを設定する
+    ShadowParan sp;
+	sp.mLVP = lightCamera.GetViewProjectionMatrix();
+    sp.lightPos.Set(ligPos);
 
     // step-5 シャドウマップに描画するモデルを初期化する
+    //ティーポットモデルを初期化するための初期化データを設定する
+    ModelInitData teapotShadowModelInitData;
+
+    //シャドウマップ描画用のシェーダーを指定する
+    teapotShadowModelInitData.m_fxFilePath = "Assets/shader/sampleDrawShadowMap.fx";
+    teapotShadowModelInitData.m_tkmFilePath = "Assets/modelData/teapot.tkm";
+
+    //影用のパラメーターを拡張定数バッファーに設定する
+    teapotShadowModelInitData.m_expandConstantBuffer = (void*)&sp;
+    teapotShadowModelInitData.m_expandConstantBufferSize = sizeof(sp);
+
+    //カラーバッファーのフォーマットに変更が入ったのでこちらも変更する
+    teapotShadowModelInitData.m_colorBufferFormat[0] = DXGI_FORMAT_R32G32_FLOAT;
+
+    // ティーポットモデルを初期化する
+    Model teapotShadowModel;
+    teapotShadowModel.Init(teapotShadowModelInitData);
+    teapotShadowModel.UpdateWorldMatrix(
+        { 0, 50, 0 },
+        g_quatIdentity,
+        g_vec3One
+    );
 
     // 通常描画のティーポットモデルを初期化
     ModelStandard teapotModel;
@@ -51,6 +95,22 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     );
 
     // step-6 影を受ける背景モデルを初期化
+	ModelInitData bgModelInitData;
+
+    //シャドウレシーバー（影が落とされるモデル）用のシェーダーを指定する
+	bgModelInitData.m_fxFilePath = "Assets/shader/sampleShadowReciever.fx";
+
+    //影用のパラメーターを拡張定数バッファーに設定する
+	bgModelInitData.m_expandConstantBuffer = (void*)&sp;
+	bgModelInitData.m_expandConstantBufferSize = sizeof(sp);
+
+    //シャドウマップは、ガウシアンブラーでぼかしたものを利用する
+    bgModelInitData.m_expandShaderResoruceView[0] = &shadowBlue.GetBokeTexture();
+
+	bgModelInitData.m_tkmFilePath = "Assets/modelData/bg/bg.tkm";
+
+	Model bgModel;
+	bgModel.Init(bgModelInitData);
 
     //////////////////////////////////////
     // 初期化を行うコードを書くのはここまで！！！
@@ -83,6 +143,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         renderContext.WaitUntilFinishDrawingToRenderTarget(shadowMap);
 
         // step-7 シャドウマップをぼかすためのガウシアンブラーを実行する
+        shadowBlue.ExecuteOnGPU(renderContext, 5.0f);
 
         // 通常レンダリング
         // レンダリングターゲットをフレームバッファーに戻す
